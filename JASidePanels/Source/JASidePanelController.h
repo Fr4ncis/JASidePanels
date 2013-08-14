@@ -108,6 +108,11 @@ typedef enum _JASidePanelState {
 // how far the view should bounce
 @property (nonatomic) CGFloat bouncePercentage;
 
+// how much the center panel shrinks when the side panels are visible
+@property (nonatomic) CGFloat shrinkRatio;
+
+@property (nonatomic) BOOL centerPanelShrinksOnSidePanelOpen;
+
 // should the center panel bounce when you are panning open a left/right panel.
 @property (nonatomic) BOOL bounceOnSidePanelOpen; // defaults to YES
 

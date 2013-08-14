@@ -80,6 +80,7 @@ static char ja_kvoContext;
 @synthesize allowLeftSwipe = _allowLeftSwipe;
 @synthesize allowRightSwipe = _allowRightSwipe;
 @synthesize pushesSidePanels = _pushesSidePanels;
+@synthesize shrinkRatio = _shrinkRatio;
 
 #pragma mark - Icon
 
@@ -138,6 +139,7 @@ static char ja_kvoContext;
     self.maximumAnimationDuration = 0.2f;
     self.bounceDuration = 0.1f;
     self.bouncePercentage = 0.075f;
+    self.shrinkRatio = 1.0f;
     self.panningLimitedToTopViewController = YES;
     self.recognizesPanGesture = YES;
     self.allowLeftOverpan = YES;
@@ -493,7 +495,7 @@ static char ja_kvoContext;
             _locationBeforePan = self.centerPanelContainer.frame.origin;
         }
         
-        CGPoint translate = [pan translationInView:self.centerPanelContainer];
+        CGPoint translate = [pan translationInView:self.view];
         CGRect frame = _centerPanelRestingFrame;
         frame.origin.x += roundf([self _correctMovement:translate.x]);
         
@@ -502,6 +504,12 @@ static char ja_kvoContext;
         }
         
         self.centerPanelContainer.frame = frame;
+        if (self.centerPanelShrinksOnSidePanelOpen)
+            [self transformViewWithTranslation:frame.origin.x];
+
+//        if (frame.origin.x <= 310.0 && frame.origin.x >= 0)
+//        {
+//        }
         
         // if center panel has focus, make sure correct side panel is revealed
         if (self.state == JASidePanelCenterVisible) {
@@ -518,7 +526,7 @@ static char ja_kvoContext;
         }
         
         if (sender.state == UIGestureRecognizerStateEnded) {
-            CGFloat deltaX =  frame.origin.x - _locationBeforePan.x;			
+            CGFloat deltaX =  frame.origin.x - _locationBeforePan.x;
             if ([self _validateThreshold:deltaX]) {
                 [self _completePan:deltaX];
             } else {
@@ -740,6 +748,8 @@ static char ja_kvoContext;
     CGFloat duration = [self _calculatedDuration];
     [UIView animateWithDuration:duration delay:0.0f options:UIViewAnimationOptionCurveLinear|UIViewAnimationOptionLayoutSubviews animations:^{
         self.centerPanelContainer.frame = _centerPanelRestingFrame;
+        if (self.centerPanelShrinksOnSidePanelOpen)
+            [self transformViewWithTranslation:_centerPanelRestingFrame.origin.x];
         [self styleContainer:self.centerPanelContainer animate:YES duration:duration];
         if (self.style == JASidePanelMultipleActive || self.pushesSidePanels) {
             [self _layoutSideContainers:NO duration:0.0f];
@@ -1036,6 +1046,41 @@ static char ja_kvoContext;
             }];
         }
     }
+}
+
+#pragma mark -
+#pragma mark shrinking methods
+
+- (BOOL)centerPanelShrinksOnSidePanelOpen
+{
+    return _shrinkRatio < 1.0f;
+}
+
+- (void)setCenterPanelShrinksOnSidePanelOpen:(BOOL)centerPanelShrinksOnSidePanelOpen
+{
+    _shrinkRatio = centerPanelShrinksOnSidePanelOpen?0.5:1;
+}
+
+- (void)transformViewWithTranslation:(CGFloat)offset
+{
+    CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
+    const float eyePerspective = 500.0;
+    
+    // Calculate scale
+    float scale = 1 - (fabsf(offset)/screenWidth)*self.shrinkRatio;
+    scale = fmaxf(scale, self.shrinkRatio);
+    scale = fminf(scale, 1);
+    
+    // First transform, translation
+    CATransform3D transform = CATransform3DMakeAffineTransform(CGAffineTransformIdentity);
+    float width = screenWidth*(1 - scale)/2.0f;
+    transform = CATransform3DTranslate(transform, -width*(offset<0?-1:1), 0, 0);
+    
+    // Applies scaling transform
+    transform = CATransform3DScale(transform, scale, scale, 1);
+    transform.m34 = -1/eyePerspective;
+    
+    self.centerPanelContainer.layer.transform = transform;
 }
 
 @end
